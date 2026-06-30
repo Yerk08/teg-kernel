@@ -11,7 +11,7 @@ config_data = {
         "interactive_mode": True,
         "use_sticky_keys": True,
         "sticky_settings": {
-            "watchdog_timeout_ms": 250,
+            "watchdog_timeout_ms": 150,
             "max_repeat_gap_ms": 1000
         }
     },
