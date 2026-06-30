@@ -1,0 +1,24 @@
+system:
+  chip: 1
+  line: 22
+  interactive_mode: false
+  use_sticky_keys: true
+  sticky_settings:
+    watchdog_timeout_ms: 150
+    max_repeat_gap_ms: 1000
+key_mapping:
+  '0x00FFA25D': esc
+  '0x00FF629D': enter
+  '0x00FF9867': s
+  '0x00FFB04F': right
+  '0x00FF6897': left
+  '0x00FFA857': up
+  '0x00FF906F': a
+  '0x00FFE01F': d
+  '0x00FFE21D': d
+  '0x00FF22DD': q
+  '0x00FFC23D': e
+  '0x00FF02FD': UNKNOWN
+  '0x02FD02FD': UNKNOWN
+  '0x04FB9867': UNKNOWN
+  '0x00FF18E7': UNKNOWN
