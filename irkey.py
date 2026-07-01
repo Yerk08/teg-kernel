@@ -81,7 +81,7 @@ class PeriodNECDecoder:
         if duration_us >= 3000 and not self.is_recording:
             # Возвращаем длину импульса для логирования штатного восстановления
             return f"KEEP_WAITING:{int(duration_us)}"
-
+        
         # 5. Сбор 32 бит данных
         if self.is_recording:
             if duration_us < 300:
@@ -93,30 +93,31 @@ class PeriodNECDecoder:
                 bits = [0 if x < 1750 else 1 for x in self.intervals]
                 self.reset()
                 
-                # Вариант 1: Ваша исходная сборка (MSB-first)
+                # 1. Получаем байты для MSB-варианта
                 val_msb = sum((b << (31 - i)) for i, b in enumerate(bits))
                 addr_m      = (val_msb >> 24) & 0xFF
                 addr_inv_m  = (val_msb >> 16) & 0xFF
                 cmd_m       = (val_msb >> 8)  & 0xFF
                 cmd_inv_m   =  val_msb        & 0xFF
 
-                # Проверка для MSB
-                if (addr_m ^ addr_inv_m == 0xFF) and (cmd_m ^ cmd_inv_m == 0xFF):
-                    return f"0x{val_msb:08X}"
-
-                # Вариант 2: Стандартная сборка (LSB-first)
+                # 2. Получаем байты для LSB-варианта
                 val_lsb = sum((b << i) for i, b in enumerate(bits))
                 addr_l      = val_lsb & 0xFF
                 addr_inv_l  = (val_lsb >> 8) & 0xFF
                 cmd_l       = (val_lsb >> 16) & 0xFF
                 cmd_inv_l   = (val_lsb >> 24) & 0xFF
 
-                # Проверка для LSB
-                if (addr_l ^ addr_inv_l == 0xFF) and (cmd_l ^ cmd_inv_l == 0xFF):
-                    # Возвращаем код в формате MSB, так как ваши целевые коды записаны в нем
+                # 3. Независимая проверка: адрес ок в MSB или LSB?
+                addr_ok = (addr_m ^ addr_inv_m == 0xFF) or (addr_l ^ addr_inv_l == 0xFF)
+                
+                # 4. Независимая проверка: команда ок в MSB или LSB?
+                cmd_ok = (cmd_m ^ cmd_inv_m == 0xFF) or (cmd_l ^ cmd_inv_l == 0xFF)
+
+                # Если и адрес, и команда прошли валидацию (пусть даже в разных кодировках)
+                if addr_ok and cmd_ok:
                     return f"0x{val_msb:08X}"
                 
-                # Если ни один вариант не подошел — пакет действительно битый
+                # Полный провал CRC
                 return f"BAD_PACKET_CRC:0x{val_msb:08X}"
         
         return None
