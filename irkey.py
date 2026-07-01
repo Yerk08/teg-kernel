@@ -93,19 +93,32 @@ class PeriodNECDecoder:
                 bits = [0 if x < 1750 else 1 for x in self.intervals]
                 self.reset()
                 
-                val = sum((b << (31 - i)) for i, b in enumerate(bits))
-                addr      = (val >> 24) & 0xFF
-                addr_inv  = (val >> 16) & 0xFF
-                cmd       = (val >> 8)  & 0xFF
-                cmd_inv   =  val        & 0xFF
+                # Вариант 1: Ваша исходная сборка (MSB-first)
+                val_msb = sum((b << (31 - i)) for i, b in enumerate(bits))
+                addr_m      = (val_msb >> 24) & 0xFF
+                addr_inv_m  = (val_msb >> 16) & 0xFF
+                cmd_m       = (val_msb >> 8)  & 0xFF
+                cmd_inv_m   =  val_msb        & 0xFF
 
-                # Проверка CRC
-                if (addr ^ addr_inv == 0xFF) and (cmd ^ cmd_inv == 0xFF):
-                    return f"0x{val:08X}"
-                else:
-                    # Ошибка CRC — только в этом случае пакет действительно битый
-                    return f"BAD_PACKET_CRC:0x{val:08X}"
-                    
+                # Проверка для MSB
+                if (addr_m ^ addr_inv_m == 0xFF) and (cmd_m ^ cmd_inv_m == 0xFF):
+                    return f"0x{val_msb:08X}"
+
+                # Вариант 2: Стандартная сборка (LSB-first)
+                val_lsb = sum((b << i) for i, b in enumerate(bits))
+                addr_l      = val_lsb & 0xFF
+                addr_inv_l  = (val_lsb >> 8) & 0xFF
+                cmd_l       = (val_lsb >> 16) & 0xFF
+                cmd_inv_l   = (val_lsb >> 24) & 0xFF
+
+                # Проверка для LSB
+                if (addr_l ^ addr_inv_l == 0xFF) and (cmd_l ^ cmd_inv_l == 0xFF):
+                    # Возвращаем код в формате MSB, так как ваши целевые коды записаны в нем
+                    return f"0x{val_msb:08X}"
+                
+                # Если ни один вариант не подошел — пакет действительно битый
+                return f"BAD_PACKET_CRC:0x{val_msb:08X}"
+        
         return None
 
 def ir_hardware_listener(callback):
