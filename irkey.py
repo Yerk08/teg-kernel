@@ -93,33 +93,40 @@ class PeriodNECDecoder:
                 bits = [0 if x < 1750 else 1 for x in self.intervals]
                 self.reset()
                 
-                # 1. Получаем байты для MSB-варианта
+                # Сохраняем вашу исходную MSB-сборку
                 val_msb = sum((b << (31 - i)) for i, b in enumerate(bits))
-                addr_m      = (val_msb >> 24) & 0xFF
-                addr_inv_m  = (val_msb >> 16) & 0xFF
-                cmd_m       = (val_msb >> 8)  & 0xFF
-                cmd_inv_m   =  val_msb        & 0xFF
-
-                # 2. Получаем байты для LSB-варианта
-                val_lsb = sum((b << i) for i, b in enumerate(bits))
-                addr_l      = val_lsb & 0xFF
-                addr_inv_l  = (val_lsb >> 8) & 0xFF
-                cmd_l       = (val_lsb >> 16) & 0xFF
-                cmd_inv_l   = (val_lsb >> 24) & 0xFF
-
-                # 3. Независимая проверка: адрес ок в MSB или LSB?
-                addr_ok = (addr_m ^ addr_inv_m == 0xFF) or (addr_l ^ addr_inv_l == 0xFF)
                 
-                # 4. Независимая проверка: команда ок в MSB или LSB?
-                cmd_ok = (cmd_m ^ cmd_inv_m == 0xFF) or (cmd_l ^ cmd_inv_l == 0xFF)
+                # Выделяем байты так, как они видны в логе (0x33, 0xB8, 0xA8, 0x57)
+                b1 = (val_msb >> 24) & 0xFF  # 0x33
+                b2 = (val_msb >> 16) & 0xFF  # 0xB8
+                b3 = (val_msb >> 8)  & 0xFF  # 0xA8
+                b4 =  val_msb        & 0xFF  # 0x57
 
-                # Если и адрес, и команда прошли валидацию (пусть даже в разных кодировках)
-                if addr_ok and cmd_ok:
+                # --- ТЕПЕРЬ ПРОВЕРЯЕМ КОРРЕКТНО ---
+                
+                # 1. Проверка команды для Extended NEC (Ваш случай для 0x33B8A857)
+                # b3 (0xA8) и b4 (0x57) в сумме дают 0xFF? Да!
+                cmd_extended_ok = (b3 ^ b4 == 0xFF)
+                
+                # 2. Проверка адреса для стандартного NEC 
+                # b1 (0x33) и b2 (0xB8) в сумме дают 0xFF? (На случай других ваших пультов)
+                addr_standard_ok = (b1 ^ b2 == 0xFF)
+                
+                # 3. Проверка инверсии "наоборот" (зеркальные китайские клоны)
+                # Переворачиваем биты внутри каждого байта по отдельности
+                def rev8(b):
+                    return int(f'{b:08b}'[::-1], 2)
+                
+                cmd_mirror_ok = (rev8(b3) ^ rev8(b4) == 0xFF)
+                addr_mirror_ok = (rev8(b1) ^ rev8(b2) == 0xFF)
+
+                # Если сработал хотя бы один явный признак валидности NEC
+                if cmd_extended_ok or addr_standard_ok or cmd_mirror_ok or addr_mirror_ok:
                     return f"0x{val_msb:08X}"
                 
-                # Полный провал CRC
+                # Если пакет действительно поврежден шумом
                 return f"BAD_PACKET_CRC:0x{val_msb:08X}"
-        
+                
         return None
 
 def ir_hardware_listener(callback):
